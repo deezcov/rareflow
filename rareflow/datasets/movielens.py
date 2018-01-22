@@ -4,7 +4,7 @@ import itertools
 import zipfile
 import numpy as np
 import scipy.sparse as sp
-from rareflow.datasets.core import get_data_home, maybe_download_data, Dataset
+from rareflow.datasets.core import maybe_download_data, Dataset
 
 _MOVIELENS_CONFIG = {
     'URL_PREFIX': 'http://files.grouplens.org/datasets/movielens/',
@@ -124,7 +124,13 @@ def _movielens_20M_generator():
     :return: Generator
         A generator that yield 4-tuple (uid, iid, rating, timestamp)
     """
-    pass
+    zip_path = maybe_download_data(_MOVIELENS_CONFIG['URL_PREFIX'] + _MOVIELENS_CONFIG['URL_20M'])
+    archive_path = os.path.join('ml-20m', 'ratings.csv')
+
+    data = itertools.islice(_read_archive_data(zip_path, archive_path), 1, None)
+
+    for line in _make_contiguous(data, separator='::'):
+        yield line
 
 
 def _get_users_items(data):
@@ -149,10 +155,50 @@ def _get_users_items(data):
 
 def _build_interactions_matrix(rows, cols, data, min_rating):
     """
-    
-    :param rows:
-    :param cols:
-    :param data:
-    :param min_rating:
-    :return:
+    Build the interaction matrix from ratings
+    :param rows: int
+        Number of rows
+    :param cols: int
+        Number of columns
+    :param data: 4-tuple
+        Tuple contains uid, iid, rating, timestamp
+    :param min_rating: int
+        The minimum rating to consider a positive/negative interaction
+    :return: The interaction matrix in COO format
     """
+    mat = sp.lil_matrix((rows, cols), dtype=np.int32)
+
+    for uid, iid, rating, timestamp in data:
+        if rating >= min_rating:
+            mat[uid, iid] = 1.0
+
+    return mat.tocoo()
+
+
+_MOVIELENS_GENERATORS = {
+    _MOVIELENS_CONFIG['CORPUS_100K']: _movielens_100K_generator,
+    _MOVIELENS_CONFIG['CORPUS_1M']: _movielens_1M_generator,
+    _MOVIELENS_CONFIG['CORPUS_10M']: _movielens_10M_generator,
+    _MOVIELENS_CONFIG['CORPUS_20M']: _movielens_20M_generator
+}
+
+
+def fetch_data(name, min_rating=4):
+    """
+    Fetch movielens data
+    :param name: str
+        Name of the dataset to be fetched
+    :param min_rating: int
+        The minimum rating to consider a positive/negative interaction
+    :return: The dataset object
+    """
+    if name not in _MOVIELENS_GENERATORS:
+        raise ValueError('RaReFlow does not support %s dataset' % name)
+
+    # get number of users and items
+    uids, iids, (num_users, num_items) = _get_users_items(_MOVIELENS_GENERATORS[name]())
+
+    # get interaction matrix
+    interactions = _build_interactions_matrix(num_users, num_items, _MOVIELENS_GENERATORS[name](), min_rating)
+
+    return Dataset(name, uids, iids, interactions)

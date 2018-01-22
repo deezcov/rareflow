@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import logging
 import requests
-import tqdm
+from tqdm import tqdm
 import sys
 
 
@@ -14,12 +14,52 @@ class Dataset(object):
     - For user: user infos
     - For item: features coming from different modalities (e.g. audio, text)
     """
-    pass
+
+    def __init__(self, name, user_ids, item_ids, interactions):
+        super(Dataset, self).__init__()
+        self.name = name
+        self._user_ids = user_ids
+        self._item_ids = item_ids
+        self._interactions = interactions
+
+    @property
+    def user_ids(self):
+        return self._user_ids
+
+    @property
+    def item_ids(self):
+        return self._item_ids
+
+    @property
+    def interactions(self):
+        return self._interactions
+
+    @property
+    def num_users(self):
+        return len(self._user_ids)
+
+    @property
+    def num_items(self):
+        return len(self._item_ids)
+
+    @property
+    def num_interactions(self):
+        return self._interactions.count_nonzero()
+
+    def __repr__(self):
+        return '<Dataset %s has %d users x %d items x %d interactions>' % \
+               (self.name, self.num_users, self.num_items, self.num_interactions)
+
+    def tocsr(self):
+        """
+        Transform to a scipy.sparse CSR matrix.
+        """
+        return self._interactions.tocsr()
 
 
 def get_data_home(data_home=None):
     """
-    Return home path of DoReMi. In the case where the directory
+    Return home path of RaReFlow. In the case where the directory
     data_home does not exist, it is created automatically.
     :param data_home: str | None
         The home path of DoReMi.
@@ -27,7 +67,7 @@ def get_data_home(data_home=None):
         The data home path
     """
     if data_home is None:
-        data_home = os.path.join(os.path.expanduser('~'), '.doremi')
+        data_home = os.path.join(os.path.expanduser('~'), '.rareflow')
 
     if not os.path.exists(data_home):
         os.makedirs(data_home)
@@ -77,3 +117,5 @@ def maybe_download_data(url, data_home=None, download_if_missing=True, chunk_siz
         logging.info('Dataset %s already exists!' % file_path)
 
     return file_path
+
+
