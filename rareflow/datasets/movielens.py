@@ -44,7 +44,7 @@ def _parse_line(line, separator='::'):
     :return: A generator of 4-tuple (user_id, item_id, rating, timestamp)
     """
     uid, iid, rating, timestamp = line.split(separator)
-    return int(uid), int(iid), int(rating), int(timestamp)
+    return int(uid) - 1, int(iid) - 1, int(rating), int(timestamp)
 
 
 def _make_contiguous(raw_data, separator):
@@ -64,8 +64,8 @@ def _make_contiguous(raw_data, separator):
     for line in raw_data:
         uid, iid, rating, timestamp = _parse_line(line, separator)
 
-        uid = user_map.setdefault(uid, len(user_map) + 1)
-        iid = item_map.setdefault(iid, len(item_map) + 1)
+        uid = user_map.setdefault(uid, len(user_map))
+        iid = item_map.setdefault(iid, len(item_map))
 
         yield uid, iid, rating, timestamp
 
@@ -143,6 +143,7 @@ def _get_users_items(data):
     uids = set()
     iids = set()
 
+    # convert user_id and item_id to zero-based
     for uid, iid, _, _ in data:
         uids.add(uid)
         iids.add(iid)
@@ -150,7 +151,7 @@ def _get_users_items(data):
     uids = np.array(list(uids), dtype=np.int32)
     iids = np.array(list(iids), dtype=np.int32)
 
-    return uids, iids, (max(uids), max(iids))
+    return uids, iids, (max(uids) + 1, max(iids) + 1)
 
 
 def _build_interactions_matrix(rows, cols, data, min_rating):

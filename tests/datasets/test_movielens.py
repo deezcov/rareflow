@@ -1,5 +1,3 @@
-import pytest
-
 from rareflow.datasets.movielens import fetch_data
 
 
@@ -14,3 +12,5 @@ def test_fetch_movielens():
         assert type(dataset).__name__ == 'Dataset'
         assert dataset.num_users == infos['num_users']
         assert dataset.num_items == infos['num_items']
+        assert dataset.interactions.shape[0] == infos['num_users']
+        assert dataset.interactions.shape[1] == infos['num_items']
